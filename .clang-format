@@ -1,0 +1,18 @@
+# Coding style for the BCM firmware (C++14 / C).
+# Derived from LLVM with automotive-friendly adjustments (4-space indent,
+# 100-col limit, braces on their own lines for functions).
+BasedOnStyle: LLVM
+Language: Cpp
+Standard: c++14
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+ColumnLimit: 100
+BreakBeforeBraces: Linux
+AllowShortFunctionsOnASingleLine: InlineOnly
+AllowShortIfStatementsOnASingleLine: false
+AllowShortLoopsOnASingleLine: false
+PointerAlignment: Right
+SpaceAfterCStyleCast: true
+SortIncludes: false
+AlignAfterOpenBracket: Align

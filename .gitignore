@@ -1,0 +1,33 @@
+# ---- Firmware build output ----
+firmware/build/
+# Vendor sources (STM32CubeF1, FreeRTOS) are fetched via `make deps`, never committed
+firmware/vendor/
+
+# ---- Binaries ----
+*.elf
+*.bin
+*.hex
+*.map
+*.o
+*.d
+
+# ---- Host / SIL / test build ----
+build/
+sil/build/
+tests/build/
+
+# ---- .NET / WPF desktop ----
+desktop/**/bin/
+desktop/**/obj/
+*.user
+
+# ---- Editor / IDE ----
+.vscode/
+.vs/
+.idea/
+*.swp
+*~
+
+# ---- Doxygen generated ----
+docs/api/html/
+docs/api/latex/

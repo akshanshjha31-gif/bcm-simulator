@@ -1,0 +1,42 @@
+name: firmware-ci
+
+# Build the BCM firmware on every push / PR so the ARM cross-build never rots.
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build-firmware:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install arm-none-eabi-gcc
+        uses: carlosperate/arm-none-eabi-gcc-action@v1
+        with:
+          release: '13.2.Rel1'
+
+      - name: Fetch vendor dependencies (STM32CubeF1 HAL + CMSIS)
+        working-directory: firmware
+        run: make deps
+
+      - name: Build firmware
+        working-directory: firmware
+        run: make
+
+      - name: Report image size
+        working-directory: firmware
+        run: arm-none-eabi-size build/bcm_firmware.elf
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: bcm_firmware
+          path: |
+            firmware/build/bcm_firmware.elf
+            firmware/build/bcm_firmware.hex
+            firmware/build/bcm_firmware.bin
+            firmware/build/bcm_firmware.map

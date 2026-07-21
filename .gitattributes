@@ -1,0 +1,18 @@
+# Normalise line endings: store as LF in the repo, check out native locally.
+* text=auto
+
+# Force LF for build/source assets (tooling is LF-sensitive).
+*.c    text eol=lf
+*.h    text eol=lf
+*.cpp  text eol=lf
+*.hpp  text eol=lf
+*.s    text eol=lf
+*.ld   text eol=lf
+*.md   text eol=lf
+Makefile text eol=lf
+
+# C# / WPF project files check out with CRLF on Windows tooling.
+*.cs   text eol=crlf
+*.xaml text eol=crlf
+*.sln  text eol=crlf
+*.csproj text eol=crlf
