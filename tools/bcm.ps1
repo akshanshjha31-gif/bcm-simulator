@@ -26,7 +26,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Position = 0)]
-    [ValidateSet('build', 'run', 'debug', 'clean', 'flash', 'ports', 'verify', 'test', 'talk', 'sil')]
+    [ValidateSet('build', 'run', 'debug', 'clean', 'flash', 'ports', 'verify', 'test', 'talk', 'sil', 'desktop')]
     [string]$Task = 'run',
 
     [int]$GdbPort = 1234,
@@ -87,6 +87,59 @@ $make = Require (Find-XPackExe 'windows-build-tools' 'make.exe') `
 
 # Put the toolchain on PATH for the child make/gcc processes.
 $env:PATH = "$(Split-Path -Parent $gcc);$(Split-Path -Parent $make);$env:PATH"
+
+# --- WPF diagnostic tool ---------------------------------------------------
+if ($Task -eq 'desktop') {
+    $dotnet = (Get-Command dotnet -ErrorAction SilentlyContinue).Source
+    if (-not $dotnet) {
+        # Installed per-user by the dotnet-install script - no admin needed,
+        # and it does not put itself on PATH.
+        $candidate = Join-Path $env:USERPROFILE '.dotnet\dotnet.exe'
+        if (Test-Path $candidate) { $dotnet = $candidate }
+    }
+    if (-not $dotnet) {
+        Write-Host @'
+ERROR: the .NET SDK was not found.
+
+Install it per-user (no administrator rights required):
+
+  $s = "$env:TEMP\dotnet-install.ps1"
+  Invoke-WebRequest https://dot.net/v1/dotnet-install.ps1 -OutFile $s -UseBasicParsing
+  & $s -Channel 8.0 -InstallDir "$env:USERPROFILE\.dotnet" -NoPath
+'@ -ForegroundColor Red
+        exit 1
+    }
+
+    $sln = Join-Path $RepoRoot 'desktop\BcmDiagnosticTool.sln'
+    $env:DOTNET_CLI_TELEMETRY_OPTOUT = '1'
+
+    # A per-user SDK is not a machine-wide install, so the generated app host
+    # cannot find hostfxr.dll on its own and the .exe dies with
+    # "You must install .NET to run this application". DOTNET_ROOT tells it
+    # where to look; child processes inherit it.
+    $dotnetRoot = Split-Path -Parent $dotnet
+    $env:DOTNET_ROOT = $dotnetRoot
+    if ($env:PATH -notlike "*$dotnetRoot*") { $env:PATH = "$dotnetRoot;$env:PATH" }
+
+    if ($SilArgs -contains 'test') {
+        Write-Host '==> Running C# ICD conformance tests' -ForegroundColor Cyan
+        & $dotnet test $sln -c Release --nologo
+        exit $LASTEXITCODE
+    }
+
+    Write-Host '==> Building the diagnostic tool' -ForegroundColor Cyan
+    & $dotnet build $sln -c Release --nologo
+    if ($LASTEXITCODE -ne 0) { Write-Host 'Build failed.' -ForegroundColor Red; exit $LASTEXITCODE }
+
+    $exe = Join-Path $RepoRoot 'desktop\BcmDiagnosticTool\bin\Release\net8.0-windows\BcmDiagnosticTool.exe'
+    if (-not (Test-Path $exe)) {
+        Write-Host "ERROR: built, but $exe is missing." -ForegroundColor Red; exit 1
+    }
+
+    Write-Host '==> Launching. Pick the COM port and press Connect.' -ForegroundColor Cyan
+    Start-Process -FilePath $exe
+    exit 0
+}
 
 # --- Software-in-the-Loop: scenarios against the real control logic --------
 if ($Task -eq 'sil') {
