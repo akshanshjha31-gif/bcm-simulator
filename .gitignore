@@ -2,6 +2,7 @@
 firmware/build/
 # Vendor sources (STM32CubeF1, FreeRTOS) are fetched via `make deps`, never committed
 firmware/vendor/
+tests/vendor/
 
 # ---- Binaries ----
 *.elf
