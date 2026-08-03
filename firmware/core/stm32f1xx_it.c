@@ -35,12 +35,23 @@ void UsageFault_Handler(void)
     while (1) { }
 }
 
-void SVC_Handler(void)      { }
 void DebugMon_Handler(void) { }
-void PendSV_Handler(void)   { }
 
-/* ---- System tick: HAL time base ----------------------------------------- */
-void SysTick_Handler(void)
+/* SVC_Handler, PendSV_Handler and SysTick_Handler are supplied by the
+ * FreeRTOS port (see FreeRTOSConfig.h, which maps the kernel's handler names
+ * onto these vector-table entries). Defining them here too would produce a
+ * duplicate-symbol error at link time.
+ *
+ * The HAL still needs its millisecond tick, which is fed from
+ * vApplicationTickHook in app/rtos_app.cpp. */
+
+/* ---- Peripheral IRQs ----------------------------------------------------- */
+
+/* Defined in drivers/drv_uart.cpp (extern "C"). Kept as a plain C symbol so
+ * this translation unit stays free of C++ headers. */
+extern void bcm_usart1_irq_handler(void);
+
+void USART1_IRQHandler(void)
 {
-    HAL_IncTick();
+    bcm_usart1_irq_handler();
 }

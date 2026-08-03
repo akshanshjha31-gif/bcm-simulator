@@ -14,6 +14,7 @@ extern "C" {
 
 /* ######## Module selection ############################################### */
 #define HAL_MODULE_ENABLED
+#define HAL_ADC_MODULE_ENABLED
 #define HAL_GPIO_MODULE_ENABLED
 #define HAL_RCC_MODULE_ENABLED
 #define HAL_FLASH_MODULE_ENABLED
@@ -66,8 +67,12 @@ extern "C" {
 #ifdef HAL_EXTI_MODULE_ENABLED
 #include "stm32f1xx_hal_exti.h"
 #endif
+/* ADC must follow DMA: stm32f1xx_hal_adc.h refers to DMA_HandleTypeDef. */
 #ifdef HAL_DMA_MODULE_ENABLED
 #include "stm32f1xx_hal_dma.h"
+#endif
+#ifdef HAL_ADC_MODULE_ENABLED
+#include "stm32f1xx_hal_adc.h"
 #endif
 #ifdef HAL_CORTEX_MODULE_ENABLED
 #include "stm32f1xx_hal_cortex.h"

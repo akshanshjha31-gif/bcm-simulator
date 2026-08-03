@@ -9,6 +9,7 @@
  */
 #include "stm32f1xx_hal.h"
 #include "bsp.h"
+#include "rtos_app.h"
 
 namespace {
 
@@ -56,9 +57,10 @@ int main()
 
     bcm::bsp::init();
 
-    /* Phase 0 super-loop: 1 Hz heartbeat (500 ms on / 500 ms off). */
-    for (;;) {
-        bcm::bsp::heartbeat_toggle();
-        HAL_Delay(500);
-    }
+    /* Phase 4: hand control to FreeRTOS. The task set, the watchdog
+     * supervisor and the kernel hooks live in app/rtos_app.cpp; the service
+     * layer is unchanged from Phase 3, which is the point of the layering. */
+    bcm::app::rtos_start();
+
+    for (;;) { }   /* unreachable - rtos_start() does not return */
 }

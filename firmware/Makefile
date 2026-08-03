@@ -17,6 +17,12 @@ DEVICE_DIR  := $(CMSIS_DIR)/Device/ST/STM32F1xx
 
 CUBE_REPO   := https://github.com/STMicroelectronics/STM32CubeF1.git
 
+# ---- FreeRTOS kernel (Phase 4) -------------------------------------------
+RTOS_DIR    := $(VENDOR_DIR)/FreeRTOS-Kernel
+RTOS_REPO   := https://github.com/FreeRTOS/FreeRTOS-Kernel.git
+RTOS_TAG    := V11.1.0
+RTOS_PORT   := $(RTOS_DIR)/portable/GCC/ARM_CM3
+
 # ---- Toolchain -----------------------------------------------------------
 PREFIX      := arm-none-eabi-
 CC          := $(PREFIX)gcc
@@ -36,10 +42,14 @@ INCLUDES := \
   -Icommon \
   -Ibsp \
   -Icore \
+  -Idrivers \
+  -Iservices \
   -Iapp \
   -I$(HAL_DIR)/Inc \
   -I$(CMSIS_DIR)/Include \
-  -I$(DEVICE_DIR)/Include
+  -I$(DEVICE_DIR)/Include \
+  -I$(RTOS_DIR)/include \
+  -I$(RTOS_PORT)
 
 # ---- C sources (CMSIS/HAL/startup glue) ----------------------------------
 SRC_C := \
@@ -57,13 +67,45 @@ SRC_C += \
   $(HAL_DIR)/Src/stm32f1xx_hal_gpio.c \
   $(HAL_DIR)/Src/stm32f1xx_hal_flash.c \
   $(HAL_DIR)/Src/stm32f1xx_hal_flash_ex.c \
-  $(HAL_DIR)/Src/stm32f1xx_hal_pwr.c
+  $(HAL_DIR)/Src/stm32f1xx_hal_pwr.c \
+  $(HAL_DIR)/Src/stm32f1xx_hal_adc.c \
+  $(HAL_DIR)/Src/stm32f1xx_hal_adc_ex.c \
+  $(HAL_DIR)/Src/stm32f1xx_hal_uart.c \
+  $(HAL_DIR)/Src/stm32f1xx_hal_iwdg.c
+
+# ---- FreeRTOS kernel -----------------------------------------------------
+# No heap_x.c: configSUPPORT_DYNAMIC_ALLOCATION is 0, so every kernel object
+# is statically allocated and there is no heap to size or exhaust.
+SRC_C += \
+  $(RTOS_DIR)/tasks.c \
+  $(RTOS_DIR)/list.c \
+  $(RTOS_DIR)/queue.c \
+  $(RTOS_DIR)/event_groups.c \
+  $(RTOS_PORT)/port.c
 
 # ---- C++ sources (application / framework) -------------------------------
 SRC_CXX := \
   core/main.cpp \
   core/cpp_runtime.cpp \
-  bsp/bsp.cpp
+  drivers/drv_gpio.cpp \
+  drivers/drv_adc.cpp \
+  drivers/drv_uart.cpp \
+  drivers/drv_watchdog.cpp \
+  services/frame_codec.cpp \
+  services/dispatcher.cpp \
+  services/comm_mgr.cpp \
+  services/lighting_mgr.cpp \
+  services/door_mgr.cpp \
+  services/power_mgr.cpp \
+  services/lamp_arbiter.cpp \
+  services/fault_mgr.cpp \
+  services/logger.cpp \
+  services/diag_mgr.cpp \
+  bsp/bsp.cpp \
+  app/commands.cpp \
+  app/selftest.cpp \
+  app/bcm_app.cpp \
+  app/rtos_app.cpp
 
 # ---- Assembly (startup) --------------------------------------------------
 SRC_ASM := $(DEVICE_DIR)/Source/Templates/gcc/startup_stm32f103xb.s
@@ -136,6 +178,8 @@ deps:
 	@cd $(CUBE_DIR) && git submodule update --init --depth 1 \
 	    Drivers/STM32F1xx_HAL_Driver \
 	    Drivers/CMSIS/Device/ST/STM32F1xx
+	@test -d $(RTOS_DIR) || git clone --depth 1 --branch $(RTOS_TAG) \
+	    $(RTOS_REPO) $(RTOS_DIR)
 	@echo "Vendor dependencies ready."
 
 # ---- Flash / debug -------------------------------------------------------
