@@ -143,6 +143,25 @@ request that caused it.
 
 Multi-byte integers are **big-endian** (most significant byte first).
 
+### 4.0 Unsolicited event frames — hosts MUST handle these
+
+| ID | Name | Direction | Payload |
+|---|---|---|---|
+| `0x8D` | `LOG_EVENT` | BCM → host, **unsolicited** | `ts[4]` (ms, big-endian), `event`, `arg` |
+
+The BCM emits a `LOG_EVENT` frame whenever something notable happens —
+ignition, brake, door state, battery, comms. It arrives **at any time**,
+including between a request and its response.
+
+> **A host must therefore not assume that the next frame it receives is the
+> reply to what it just sent.** Read frames until one arrives whose `CMD`
+> equals `request | 0x80`, and process or discard anything else. A host that
+> skips this desynchronises the moment the vehicle does anything.
+
+`LOG_EVENT` always carries the response flag and is never accepted as a
+request, so it can never be mistaken for one. Event identifiers are the
+`LogEvent` enum in `services/logger.h`.
+
 ### 4.1 Status codes
 
 Every response begins with a status byte:

@@ -16,22 +16,17 @@
 #define BCM_APP_H
 
 #include "bcm_config.h"
+#include "bcm_core.h"
 #include "bcm_types.h"
 #include "bsp.h"
 #include "commands.h"
 #include "comm_mgr.h"
-#include "door_mgr.h"
 #include "drv_adc.h"
 #include "drv_button.h"
 #include "drv_led.h"
 #include "drv_timer.h"
 #include "drv_watchdog.h"
-#include "fault_mgr.h"
-#include "horn_mgr.h"
-#include "lamp_arbiter.h"
-#include "lighting_mgr.h"
 #include "logger.h"
-#include "power_mgr.h"
 #include "uart_transport.h"
 
 namespace bcm {
@@ -61,17 +56,15 @@ public:
     bool take_log_event(services::LogEvent& event, uint8_t& arg);
 
 private:
-    void read_inputs(uint16_t dt_ms);
-    void feed_managers(uint16_t dt_ms);
-    void publish(uint16_t dt_ms);
+    /// Read the pins into a hardware-free Inputs snapshot for the core.
+    void gather_inputs(uint16_t dt_ms);
+    /// Drive the pins from the core's arbitrated lamp state.
+    void drive_outputs(uint16_t dt_ms);
 
+    /* All BCM behaviour lives in BcmCore, which is hardware-free and is the
+     * exact object the SIL harness drives. This class only binds it to pins. */
     services::Config      cfg_;
-    services::LightingMgr lighting_;
-    services::DoorMgr     door_;
-    services::PowerMgr    power_;
-    services::HornMgr     horn_;
-    services::FaultMgr    faults_;
-    services::Logger      log_;
+    services::BcmCore     core_;
 
     drivers::Led          lamps_[static_cast<uint8_t>(bsp::Lamp::Count)];
     drivers::Button       buttons_[static_cast<uint8_t>(bsp::Switch::Count)];
@@ -87,22 +80,11 @@ private:
     services::LampState   host_request_;
     services::LampState   actual_;
 
-    /// Held long enough, the ignition button steps the light switch. A
-    /// bring-up affordance until a dedicated switch is wired to PB5.
-    uint16_t              ignition_held_ms_;
-    bool                  long_press_fired_;
-
+    /// Reserved for the dedicated light switch once one is wired to PB5.
     uint16_t              heartbeat_ms_;
 
     /// Latest reading from the Sensor task (or from run() when bare-metal).
     uint16_t              battery_permille_;
-
-    /* Previous values, so events are logged on change rather than every
-     * cycle - a 5 ms loop would otherwise flood the log instantly. */
-    bool                  prev_brake_;
-    bool                  prev_load_shed_;
-    bool                  prev_comms_lost_;
-    services::DoorState   prev_door_;
 };
 
 }  // namespace app

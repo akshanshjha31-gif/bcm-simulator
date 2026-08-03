@@ -26,7 +26,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Position = 0)]
-    [ValidateSet('build', 'run', 'debug', 'clean', 'flash', 'ports', 'verify', 'test', 'talk')]
+    [ValidateSet('build', 'run', 'debug', 'clean', 'flash', 'ports', 'verify', 'test', 'talk', 'sil')]
     [string]$Task = 'run',
 
     [int]$GdbPort = 1234,
@@ -35,7 +35,11 @@ param(
     [int]$Baud = 115200,
     [ValidateSet('auto', 'swd', 'uart')]
     [string]$Method = 'auto',
-    [switch]$Attach
+    [switch]$Attach,
+
+    # Extra arguments passed through to the SIL binary, e.g. --verbose or a
+    # scenario name. Ignored by every other action.
+    [string[]]$SilArgs = @()
 )
 
 $ErrorActionPreference = 'Stop'
@@ -83,6 +87,41 @@ $make = Require (Find-XPackExe 'windows-build-tools' 'make.exe') `
 
 # Put the toolchain on PATH for the child make/gcc processes.
 $env:PATH = "$(Split-Path -Parent $gcc);$(Split-Path -Parent $make);$env:PATH"
+
+# --- Software-in-the-Loop: scenarios against the real control logic --------
+if ($Task -eq 'sil') {
+    $hostCxx = Find-XPackExe 'mingw-w64-gcc' 'x86_64-w64-mingw32-g++.exe'
+    if (-not $hostCxx) {
+        Write-Host 'ERROR: host compiler not found.' -ForegroundColor Red
+        Write-Host '       xpm install --global @xpack-dev-tools/mingw-w64-gcc@latest' -ForegroundColor Yellow
+        exit 1
+    }
+    $env:PATH = "$(Split-Path -Parent $hostCxx);$env:PATH"
+
+    $silDir = Join-Path $RepoRoot 'sil'
+    Push-Location $silDir
+    try {
+        Write-Host '==> Building SIL harness' -ForegroundColor Cyan
+        & $make
+        if ($LASTEXITCODE -ne 0) { Write-Host 'SIL build failed.' -ForegroundColor Red; exit $LASTEXITCODE }
+
+        $exe  = Join-Path $silDir 'build\bcm_sil.exe'
+        $outF = Join-Path $env:TEMP "bcm_sil_$PID.out"
+        $errF = Join-Path $env:TEMP "bcm_sil_$PID.err"
+        # -PassThru: Start-Process does not set $LASTEXITCODE.
+        # -ArgumentList rejects an empty array, so splat it only when there is
+        # something to pass.
+        $extra = @{}
+        if ($SilArgs -and $SilArgs.Count -gt 0) { $extra['ArgumentList'] = $SilArgs }
+        $proc = Start-Process -FilePath $exe -Wait -NoNewWindow -PassThru @extra `
+                              -RedirectStandardOutput $outF -RedirectStandardError $errF
+        Get-Content $outF -Raw -ErrorAction SilentlyContinue
+        Get-Content $errF -Raw -ErrorAction SilentlyContinue
+        Remove-Item $outF, $errF -Force -ErrorAction SilentlyContinue
+        exit $proc.ExitCode
+    }
+    finally { Pop-Location }
+}
 
 # --- Host unit tests (run natively, not on the STM32) ----------------------
 if ($Task -eq 'test') {
@@ -208,8 +247,13 @@ try {
         }
 
         # Mirror of the firmware's FrameParser, so a disagreement shows up here.
+        #
+        # $ExpectCmd, when given, makes this skip frames that are not the reply
+        # being waited for. The BCM emits unsolicited LOG_EVENT frames (0x8D)
+        # whenever something happens, so a host that assumes "the next frame is
+        # my answer" desynchronises the moment the vehicle does anything.
         function Read-BcmFrame {
-            param($Sp, [int]$TimeoutMs = 1000)
+            param($Sp, [int]$TimeoutMs = 1000, [int]$ExpectCmd = -1)
             $state = 'HDR'; $cmd = 0; $len = 0; $payload = @(); $body = @()
             $deadline = (Get-Date).AddMilliseconds($TimeoutMs)
             while ((Get-Date) -lt $deadline) {
@@ -232,7 +276,12 @@ try {
                     }
                     'FTR' {
                         if ($b -ne 0x55) { return @{ Ok=$false; Why='bad footer' } }
-                        return @{ Ok=$true; Cmd=$cmd; Len=$len; Payload=$payload }
+                        if ($ExpectCmd -lt 0 -or $cmd -eq $ExpectCmd) {
+                            return @{ Ok=$true; Cmd=$cmd; Len=$len; Payload=$payload }
+                        }
+                        # Not our reply (an unsolicited event) - keep waiting.
+                        $state = 'HDR'
+                        continue
                     }
                 }
             }
@@ -274,7 +323,7 @@ The ST-Link does NOT carry this - it is a separate adapter.
                 param([string]$Name, [byte]$Cmd, [byte[]]$Payload = @(), [scriptblock]$Validate)
                 $frame = New-BcmFrame -Cmd $Cmd -Payload $Payload
                 $script:sp.Write($frame, 0, $frame.Length)
-                $r = Read-BcmFrame -Sp $script:sp
+                $r = Read-BcmFrame -Sp $script:sp -ExpectCmd ($Cmd -bor 0x80)
                 if (-not $r.Ok) {
                     Write-Host ("  [FAIL] {0,-14} {1}" -f $Name, $r.Why) -ForegroundColor Red
                     return $false

@@ -59,6 +59,9 @@ enum class Cmd : uint8_t {
     ClearDtc    = 0x0AU,   ///< clear stored DTCs
     Reset       = 0x0BU,   ///< request a controlled reset
     Heartbeat   = 0x0CU,   ///< periodic liveness from the host
+    /// Unsolicited event notification, BCM -> host. Always carries
+    /// kResponseFlag; the BCM never accepts it as a request.
+    LogEvent    = 0x0DU,
 };
 
 /// OR'd into the command id of a response frame.

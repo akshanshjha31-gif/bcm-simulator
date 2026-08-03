@@ -99,6 +99,7 @@ SRC_CXX := \
   services/power_mgr.cpp \
   services/lamp_arbiter.cpp \
   services/fault_mgr.cpp \
+  services/bcm_core.cpp \
   services/logger.cpp \
   services/diag_mgr.cpp \
   bsp/bsp.cpp \

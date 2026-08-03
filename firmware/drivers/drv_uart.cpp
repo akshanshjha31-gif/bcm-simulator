@@ -69,16 +69,33 @@ bool Uart::init(const UartConfig& cfg)
 bool Uart::write(const uint8_t* data, uint16_t len)
 {
     if (!initialised_ || data == 0) { return false; }
+    if (len == 0U)                  { return true; }
+    if (len > kTxCapacity)          { return false; }
 
-    bool ok = true;
-    for (uint16_t i = 0U; i < len; ++i) {
-        /* Guard the queue against the ISR draining it mid-push. */
-        __HAL_UART_DISABLE_IT(&handle_, UART_IT_TXE);
-        const bool pushed = tx_.push(data[i]);
-        __HAL_UART_ENABLE_IT(&handle_, UART_IT_TXE);
-        if (!pushed) { ok = false; break; }
+    /* All-or-nothing, and atomic against both the ISR and any other task.
+     *
+     * The previous version pushed byte by byte and stopped when the buffer
+     * filled, which put a TRUNCATED frame on the wire - far worse than
+     * dropping one, because the receiver then has to resynchronise. And with
+     * two tasks writing (protocol replies and log records), a per-byte lock
+     * let their bytes interleave mid-frame.
+     *
+     * Interrupts are off for at most ~37 bytes of copying, a few microseconds
+     * at 72 MHz. Done with PRIMASK rather than an RTOS mutex so the driver
+     * layer stays independent of the kernel. */
+    const uint32_t primask = __get_PRIMASK();
+    __disable_irq();
+
+    if (static_cast<uint16_t>(tx_.capacity() - tx_.size()) < len) {
+        __set_PRIMASK(primask);
+        return false;
     }
-    return ok;
+    for (uint16_t i = 0U; i < len; ++i) { (void)tx_.push(data[i]); }
+
+    __set_PRIMASK(primask);
+
+    __HAL_UART_ENABLE_IT(&handle_, UART_IT_TXE);
+    return true;
 }
 
 bool Uart::write_str(const char* text)

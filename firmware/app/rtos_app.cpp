@@ -11,7 +11,9 @@
 #include "drv_timer.h"
 #include "drv_uart.h"
 #include "drv_watchdog.h"
+#include "frame_codec.h"
 #include "logger.h"
+#include "protocol.h"
 
 #include "FreeRTOS.h"
 #include "event_groups.h"
@@ -181,20 +183,26 @@ void task_logger(void*)
         /* Block with a timeout rather than forever, so the task still checks
          * in when the log is quiet. */
         if (xQueueReceive(g_log_queue, &r, pdMS_TO_TICKS(100U)) == pdTRUE) {
-            char stamp[12];
-            uint32_t ms = r.timestamp_ms;
-            int8_t   i  = 10;
-            stamp[11]   = '\0';
-            if (ms == 0U) { stamp[i--] = '0'; }
-            while (ms > 0U && i >= 0) {
-                stamp[i--] = static_cast<char>('0' + (ms % 10U));
-                ms /= 10U;
+            /* Emitted as a protocol frame, NOT as plain text. Text and binary
+             * frames sharing one wire forced every receiver to resynchronise
+             * around log output, and a long line could push a reply out of
+             * the TX buffer entirely. */
+            services::Frame f;
+            f.cmd = static_cast<uint8_t>(services::Cmd::LogEvent) |
+                    services::kResponseFlag;
+            f.len = 6U;
+            f.payload[0] = static_cast<uint8_t>((r.timestamp_ms >> 24) & 0xFFU);
+            f.payload[1] = static_cast<uint8_t>((r.timestamp_ms >> 16) & 0xFFU);
+            f.payload[2] = static_cast<uint8_t>((r.timestamp_ms >> 8) & 0xFFU);
+            f.payload[3] = static_cast<uint8_t>(r.timestamp_ms & 0xFFU);
+            f.payload[4] = static_cast<uint8_t>(r.event);
+            f.payload[5] = r.arg;
+
+            uint8_t  buffer[services::kMaxFrameSize];
+            uint16_t written = 0U;
+            if (services::FrameCodec::encode(f, buffer, sizeof(buffer), written)) {
+                (void)drivers::Uart::write(buffer, written);
             }
-            drivers::Uart::write_str("[");
-            drivers::Uart::write_str(&stamp[i + 1]);
-            drivers::Uart::write_str(" ms] ");
-            drivers::Uart::write_str(services::Logger::name(r.event));
-            drivers::Uart::write_str("\r\n");
         }
         check_in(kTaskLogger);
     }
