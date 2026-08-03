@@ -26,7 +26,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Position = 0)]
-    [ValidateSet('build', 'run', 'debug', 'clean', 'flash', 'ports', 'verify', 'test', 'talk', 'sil', 'desktop')]
+    [ValidateSet('build', 'run', 'debug', 'clean', 'flash', 'ports', 'verify', 'test', 'talk', 'sil', 'desktop', 'docs')]
     [string]$Task = 'run',
 
     [int]$GdbPort = 1234,
@@ -87,6 +87,56 @@ $make = Require (Find-XPackExe 'windows-build-tools' 'make.exe') `
 
 # Put the toolchain on PATH for the child make/gcc processes.
 $env:PATH = "$(Split-Path -Parent $gcc);$(Split-Path -Parent $make);$env:PATH"
+
+# --- Doxygen API reference -------------------------------------------------
+if ($Task -eq 'docs') {
+    $doxygen = (Get-Command doxygen -ErrorAction SilentlyContinue).Source
+    if (-not $doxygen) {
+        $candidate = Join-Path $env:USERPROFILE '.local\doxygen\doxygen.exe'
+        if (Test-Path $candidate) { $doxygen = $candidate }
+    }
+    if (-not $doxygen) {
+        Write-Host @'
+ERROR: doxygen was not found.
+
+It ships as a portable zip - no installer, no administrator rights:
+
+  Invoke-WebRequest https://www.doxygen.nl/files/doxygen-1.12.0.windows.x64.bin.zip `
+      -OutFile "$env:TEMP\doxygen.zip" -UseBasicParsing
+  Expand-Archive "$env:TEMP\doxygen.zip" "$env:USERPROFILE\.local\doxygen"
+'@ -ForegroundColor Red
+        exit 1
+    }
+
+    $docsDir = Join-Path $RepoRoot 'docs'
+    Push-Location $docsDir
+    try {
+        Write-Host '==> Generating the API reference' -ForegroundColor Cyan
+        & $doxygen Doxyfile
+        $rc = $LASTEXITCODE
+
+        $warnLog = Join-Path $docsDir 'api\doxygen-warnings.log'
+        if (Test-Path $warnLog) {
+            $warnings = @(Get-Content $warnLog | Where-Object { $_.Trim() -ne '' })
+            if ($warnings.Count -gt 0) {
+                Write-Host "    $($warnings.Count) warning(s) - see docs/api/doxygen-warnings.log" -ForegroundColor Yellow
+            }
+            else { Write-Host '    no warnings' -ForegroundColor Green }
+        }
+
+        $index = Join-Path $docsDir 'api\html\index.html'
+        if (Test-Path $index) {
+            Write-Host "==> Done: $index" -ForegroundColor Green
+            if ($SilArgs -contains 'open') { Start-Process $index }
+        }
+        else {
+            Write-Host 'ERROR: doxygen produced no index.html' -ForegroundColor Red
+            exit 1
+        }
+        exit $rc
+    }
+    finally { Pop-Location }
+}
 
 # --- WPF diagnostic tool ---------------------------------------------------
 if ($Task -eq 'desktop') {

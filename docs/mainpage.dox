@@ -1,0 +1,68 @@
+/**
+@mainpage BCM Simulator - API Reference
+
+An automotive **Body Control Module** built the way a Tier-1 supplier would
+build one: strict layering, four state machines behind a central safety
+arbiter, a framed diagnostic protocol, and a test strategy that runs most of
+the firmware on a PC.
+
+Target: STM32F103C8 "Blue Pill", 72 MHz Cortex-M3, 64 KB flash, 20 KB RAM.
+
+@section arch Layering
+
+@verbatim
+  Application   app/          composition root, FreeRTOS tasks
+       |
+  Service       services/     FSMs, arbitration, protocol, diagnostics
+       |
+  Driver        drivers/      GPIO, button, LED, UART, ADC, timer, watchdog
+       |
+  HAL / BSP     bsp/          the only layer that knows the wiring
+       |
+  STM32 HAL + CMSIS  ->  hardware
+@endverbatim
+
+Dependencies point **downward only**. The consequence that matters: every
+service compiles for the host, so the control logic is unit-tested and
+scenario-tested off-target.
+
+@section split The split that makes testing possible
+
+Each driver is two pieces - hardware-free logic, and a thin binding to it:
+
+| HAL-free (host-tested)   | HAL-bound (target only) |
+|--------------------------|-------------------------|
+| @ref bcm::drivers::Debouncer  | @ref bcm::drivers::Button |
+| @ref bcm::drivers::Blinker    | @ref bcm::drivers::Led |
+| @ref bcm::drivers::ExpFilter  | @ref bcm::drivers::Adc |
+| @ref bcm::drivers::RingBuffer | @ref bcm::drivers::Uart |
+| @ref bcm::drivers::SoftTimer  | @ref bcm::drivers::Watchdog |
+
+The same idea at the top: @ref bcm::services::BcmCore holds the entire control
+cycle with no hardware in it. @ref bcm::app::BcmApp binds it to pins; the SIL
+harness drives the identical object from a scripted timeline.
+
+@section safety Safety invariants
+
+These are enforced in one place - @ref bcm::services::LampArbiter - which runs
+**last**, immediately before anything reaches a pin. No feature and no
+diagnostic host can route around it.
+
+- Brake lamp overrides every other lamp (SRS-BRK-001, SRS-SAFETY-003)
+- Reverse lamp only with reverse gear selected (SRS-REV-001, SRS-SAFETY-005)
+- Never lock while a door is open (SRS-DOOR-002, SRS-SAFETY-004) - an FSM
+  guard, so it covers the automatic path as well as the manual one
+- Sleep blanks every lamp but the lock indicator (SRS-PWR-003)
+- Comms lost drives a defined state, not the last command (SRS-SAFETY-007)
+- The watchdog is refreshed only when every task has checked in
+  (SRS-SAFETY-006)
+
+@section docs Companion documents
+
+- `docs/requirements/SRS.md` - software requirements (BCM-SRS-001)
+- `docs/architecture/ArchitectureDocument.md` - design rationale (BCM-ARC-001)
+- `docs/protocol/ICD.md` - the wire protocol (BCM-ICD-001)
+- `docs/uml/UML.md` - class, sequence, state and deployment diagrams
+- `docs/test/TestReport.md` - results and the requirements traceability matrix
+- `docs/manual/UserManual.md` - build, flash, operate, troubleshoot
+*/

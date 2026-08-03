@@ -6,10 +6,12 @@
  * non-zero on any failure so CI can gate on it.
  *
  * Usage:
+ * @code
  *   bcm_sil               run everything
  *   bcm_sil --verbose     also list the checks that passed
  *   bcm_sil <name>...     run only the named scenarios
  *   bcm_sil --list        list scenario names
+ * @endcode
  */
 #include "scenarios.h"
 

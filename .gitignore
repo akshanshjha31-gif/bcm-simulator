@@ -30,5 +30,4 @@ desktop/**/obj/
 *~
 
 # ---- Doxygen generated ----
-docs/api/html/
-docs/api/latex/
+docs/api/
