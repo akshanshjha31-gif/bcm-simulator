@@ -101,6 +101,7 @@ tools/      bcm.ps1
 
 | Document | ID |
 |---|---|
+| **[Project Report](docs/ProjectReport.md)** — how it was built, techniques used, how to test it | **BCM-PRJ-001** |
 | [Software Requirements Specification](docs/requirements/SRS.md) | BCM-SRS-001 |
 | [Architecture Document](docs/architecture/ArchitectureDocument.md) | BCM-ARC-001 |
 | [Interface Control Document](docs/protocol/ICD.md) | BCM-ICD-001 |
