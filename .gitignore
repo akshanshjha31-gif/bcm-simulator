@@ -31,3 +31,6 @@ desktop/**/obj/
 
 # ---- Doxygen generated ----
 docs/api/
+
+# Word lock files, created while a document is open
+~$*
