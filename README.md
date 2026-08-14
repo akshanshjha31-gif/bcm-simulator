@@ -3,7 +3,7 @@
 A production-style **Body Control Module** ECU built the way an automotive
 Tier-1/OEM would build it — layered architecture, FreeRTOS, safety-prioritised
 state machines, a framed diagnostic protocol, host unit tests, a Software-in-the-Loop
-harness, and a C# WPF diagnostic tool — running on a **US $3 STM32F103 "Blue Pill."**
+harness, and a C# WPF diagnostic tool — running on a ** STM32F103 "Blue Pill."**
 
 > Not a blink demo. The goal is to demonstrate the design, implementation, test
 > and documentation practices used for real vehicle body electronics.
