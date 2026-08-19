@@ -2,10 +2,6 @@
  * @file    board_config.h
  * @brief   Board-level pin map and constants for the STM32F103C8T6 Blue Pill.
  *
- * This is the single source of truth for physical wiring. Higher layers refer
- * to logical names only (e.g. bcm::bsp), never to raw ports/pins, so re-wiring
- * or moving to another board is a change in exactly one file.
- *
  * Reserved by the debug probe - never allocate these:
  *   PA13 = SWDIO, PA14 = SWCLK  (ST-Link V2)
  *   PB2  = BOOT1, PB3 = JTDO, PB4 = NJTRST (need a JTAG remap to use as GPIO)
@@ -28,14 +24,6 @@
 
 /* ==========================================================================
  *  Signal polarity
- *
- *  Switches: wired as
- *
- *      +3V3 ---- button ----+---- GPIO
- *                           |
- *                          10k
- *                           |
- *                          GND
  *
  *  i.e. an EXTERNAL pull-down. Released = pin held at GND = LOW;
  *  pressed = pin tied to 3V3 = HIGH. So the switches are active HIGH, and the
