@@ -10,6 +10,7 @@ reviewable in a diff and can be regenerated whenever a command changes.
 Output: docs/CommandReference.docx
 """
 
+from datetime import datetime
 from pathlib import Path
 
 from docx import Document
@@ -22,6 +23,9 @@ ACCENT = RGBColor(0x1F, 0x4E, 0x79)
 MUTED = RGBColor(0x59, 0x59, 0x59)
 DANGER = RGBColor(0xC0, 0x00, 0x00)
 OKGREEN = RGBColor(0x1E, 0x7A, 0x3C)
+
+AUTHOR = "Akshansh Jha"
+ISSUED = datetime(2026, 8, 4, 9, 15)
 
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "docs" / "CommandReference.docx"
@@ -158,12 +162,32 @@ def command_entry(doc, syntax, purpose, hardware, output_lines, notes=None):
     doc.add_paragraph().paragraph_format.space_after = Pt(8)
 
 
+def set_properties(doc, title, doc_id):
+    """Stamp the document properties Word shows under File > Info.
+
+    The issue date is fixed rather than "now" so the properties do not drift
+    every time the document is regenerated. The .docx bytes still differ
+    between runs, because the zip container stores its own entry timestamps.
+    """
+    props = doc.core_properties
+    props.author = AUTHOR
+    props.last_modified_by = AUTHOR
+    props.title = title
+    props.subject = doc_id
+    props.category = "Engineering documentation"
+    props.comments = ""
+    props.revision = 1
+    props.created = ISSUED
+    props.modified = ISSUED
+
+
 # --------------------------------------------------------------------------
 # document
 # --------------------------------------------------------------------------
 
 def build():
     doc = Document()
+    set_properties(doc, "BCM Simulator - Command Reference", "BCM-CMD-001")
     doc.styles["Normal"].font.name = "Calibri"
     doc.styles["Normal"].font.size = Pt(10.5)
 

@@ -11,6 +11,7 @@ a binary document that only one person can edit rots quickly.
 Output: docs/test/BCM-TestProcedure.docx
 """
 
+from datetime import datetime
 from pathlib import Path
 
 from docx import Document
@@ -25,6 +26,9 @@ ACCENT = RGBColor(0x1F, 0x4E, 0x79)
 MUTED = RGBColor(0x59, 0x59, 0x59)
 DANGER = RGBColor(0xC0, 0x00, 0x00)
 OK = RGBColor(0x1E, 0x7A, 0x3C)
+
+AUTHOR = "Akshansh Jha"
+ISSUED = datetime(2026, 8, 4, 9, 15)
 
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "docs" / "test" / "BCM-TestProcedure.docx"
@@ -159,12 +163,32 @@ def test_case(doc, tc_id, title, requirement, precondition, steps, expected):
     doc.add_paragraph().paragraph_format.space_after = Pt(10)
 
 
+def set_properties(doc, title, doc_id):
+    """Stamp the document properties Word shows under File > Info.
+
+    The issue date is fixed rather than "now" so the properties do not drift
+    every time the document is regenerated. The .docx bytes still differ
+    between runs, because the zip container stores its own entry timestamps.
+    """
+    props = doc.core_properties
+    props.author = AUTHOR
+    props.last_modified_by = AUTHOR
+    props.title = title
+    props.subject = doc_id
+    props.category = "Engineering documentation"
+    props.comments = ""
+    props.revision = 1
+    props.created = ISSUED
+    props.modified = ISSUED
+
+
 # --------------------------------------------------------------------------
 # document
 # --------------------------------------------------------------------------
 
 def build():
     doc = Document()
+    set_properties(doc, "BCM Simulator - Acceptance Test Procedure", "BCM-ATP-001")
 
     style = doc.styles["Normal"]
     style.font.name = "Calibri"
